@@ -1,0 +1,7 @@
+﻿services:
+  imagenetviewer:
+    image: imagenetviewer
+    build:
+      context: .
+      dockerfile: ImageNetViewer/Dockerfile
+
