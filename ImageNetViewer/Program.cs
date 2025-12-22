@@ -38,33 +38,41 @@ public class Program
 
         app.MapGet("/image-net", (string? nodePath, int? maxDepth, HttpContext httpContext, ImageNetDbContext dbContext) =>
             {
-                return GetNodes(httpContext, dbContext, nodePath, maxDepth ?? 1);
+                return GetNodes(httpContext, dbContext, nodePath, maxDepth);
             })
             .WithName("GetImageNetNode");
 
         app.MapGet("/image-net-search", (string? nodePath, string? searchTerm, HttpContext httpContext, ImageNetDbContext dbContext) =>
             {
-                return SearchNodes(dbContext, nodePath, searchTerm).ToArray();
+                if (searchTerm.IsNullOrEmpty())
+                    return Results.BadRequest("Search term cannot be null or empty");
+
+                return Results.Ok(SearchNodes(dbContext, nodePath, searchTerm).ToArray());
             })
             .WithName("SearchImageNet");
 
         app.Run();
     }
 
-    private static ImageNetNode[] GetNodes(HttpContext httpContext, ImageNetDbContext context, string? nodePath, int maxDepth)
+    private static ImageNetNode[] GetNodes(HttpContext httpContext, ImageNetDbContext context, string? nodePath, int? maxDepth)
     {
         return GetNodes(context, nodePath, maxDepth).ToArray();
     }
 
-    private static IQueryable<ImageNetNode> GetNodes(ImageNetDbContext context, string? nodePath, int maxDepth)
+    private static IQueryable<ImageNetNode> GetNodes(ImageNetDbContext context, string? nodePath, int? maxDepth)
     {
         int nodeDepth = nodePath.IsNullOrEmpty() ? 0 : nodePath.Count(ch => ch == '>');
-        return context.ImageNetNodes.Where(node => node.Name.StartsWith(nodePath + " > ") && nodeDepth < node.Level && node.Level <= nodeDepth + maxDepth);
+        maxDepth ??= 1;
+        return context.ImageNetNodes.Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && nodeDepth < node.Level && node.Level <= nodeDepth + maxDepth);
     }
 
     private static IQueryable<ImageNetNode> SearchNodes(ImageNetDbContext context, string? nodePath, string searchTerm)
     {
         Console.Out.WriteLine($"SearchNodes(nodePath = {nodePath}, searchTerm = {searchTerm})");
-        return context.ImageNetNodes.Where(node => node.Name.StartsWith(nodePath + " > ") && EF.Functions.Like(node.Title, $"%{searchTerm}%"));
+
+        return context.ImageNetNodes.Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && EF.Functions.Like(node.Title, $"%{searchTerm}%"));
     }
+
+    private static string MakePathPrefix(string? nodePath)
+        => nodePath is null ? "" : $"{nodePath} > ";
 }
