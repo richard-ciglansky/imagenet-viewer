@@ -1,6 +1,0 @@
-@ImageNetViewer_HostAddress = http://localhost:5194
-
-GET {{ImageNetViewer_HostAddress}}/image-net?nodePath=ImageNet%202011%20Fall%20Release%20%3E%20plant%2C%20flora%2C%20plant%20life%20%3E%20wilding%20%3E%20wildflower%2C%20wild%20flower
-Accept: application/json
-
-###
