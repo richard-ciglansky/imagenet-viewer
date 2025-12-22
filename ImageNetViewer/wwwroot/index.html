@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ImageNet Viewer</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; }
+      header { padding: 12px 16px; border-bottom: 1px solid #ccc; position: sticky; top: 0; background: rgba(250,250,250,.9); backdrop-filter: blur(6px); }
+      main { padding: 12px 16px; }
+      .search { display: flex; gap: 8px; align-items: center; }
+      .search input { flex: 1; padding: 8px 10px; font-size: 14px; }
+      .tree { margin-top: 12px; }
+      ul { list-style: none; margin: 0; padding-left: 18px; }
+      .node { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+      .toggle { cursor: pointer; width: 1em; display: inline-flex; align-items: center; justify-content: center; }
+      .title { cursor: default; }
+      .badge { font-size: 11px; opacity: .7; }
+      .loading { opacity: .6; font-style: italic; }
+      .muted { opacity: .6; }
+      .empty { padding: 6px 2px; opacity: .7; }
+      .footer { margin-top: 24px; font-size: 12px; opacity: .7; }
+      @media (prefers-color-scheme: dark){ header{border-bottom-color:#444} }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="search">
+        <input id="search" type="text" placeholder="Search titles (e.g. 'goldenrod') — results show only nodes whose titles contain the term" />
+        <button id="clearBtn" title="Clear">Clear</button>
+      </div>
+    </header>
+    <main>
+      <div id="app"></div>
+      <div class="footer muted">Data loads lazily. In search mode, only nodes whose Title contains your term are shown.</div>
+    </main>
+
+    <!-- React via CDN for simplicity -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useEffect, useMemo, useCallback } = React;
+
+      function useDebounced(value, delay = 350){
+        const [debounced, setDebounced] = useState(value);
+        useEffect(() => {
+          const id = setTimeout(() => setDebounced(value), delay);
+          return () => clearTimeout(id);
+        }, [value, delay]);
+        return debounced;
+      }
+
+      async function fetchJson(url){
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if(!res.ok) throw new Error('Request failed: ' + res.status);
+        return res.json();
+      }
+
+      function makeQuery(params){
+        const sp = new URLSearchParams();
+        Object.entries(params).forEach(([k,v]) => {
+          if(v !== undefined && v !== null && v !== '') sp.append(k, v);
+        });
+        return sp.toString();
+      }
+
+      function TreeNode({ node, loadChildren, searchTerm }){
+        const [expanded, setExpanded] = useState(false);
+        const [loading, setLoading] = useState(false);
+        const [children, setChildren] = useState(null); // null = not loaded, [] = loaded no children
+        const [hasError, setHasError] = useState('');
+
+        const hasChildren = children ? children.length > 0 : true; // assume expandable until known empty
+
+        const onToggle = async () => {
+          if (!expanded) {
+            if (children === null) {
+              setLoading(true); setHasError('');
+              try {
+                const items = await loadChildren(node);
+                setChildren(items);
+              } catch (e){
+                setHasError(String(e));
+              } finally {
+                setLoading(false);
+              }
+            }
+            setExpanded(true);
+          } else {
+            setExpanded(false);
+          }
+        };
+
+        return (
+          <li>
+            <div className="node">
+              <span className="toggle" onClick={onToggle} title={expanded ? 'Collapse' : 'Expand'}>
+                {hasChildren ? (expanded ? '▼' : '▶') : '•'}
+              </span>
+              <span className="title" title={node.Name}>{node.Title}</span>
+              {loading && <span className="loading">Loading…</span>}
+              {!!node.Size && <span className="badge">{node.Size}</span>}
+            </div>
+            {hasError && <div className="empty">Error: {hasError}</div>}
+            {expanded && children && children.length > 0 && (
+              <ul>
+                {children.map(child => (
+                  <TreeNode key={child.Id} node={child} loadChildren={loadChildren} searchTerm={searchTerm} />
+                ))}
+              </ul>
+            )}
+            {expanded && children && children.length === 0 && (
+              <div className="empty muted">No children</div>
+            )}
+          </li>
+        );
+      }
+
+      function App(){
+        const [rootItems, setRootItems] = useState([]);
+        const [loadingRoot, setLoadingRoot] = useState(true);
+        const [errorRoot, setErrorRoot] = useState('');
+        const [search, setSearch] = useState('');
+        const debouncedSearch = useDebounced(search, 350);
+
+        const isSearching = debouncedSearch.trim().length > 0;
+
+        const loadRoot = useCallback(async (term) => {
+          setLoadingRoot(true); setErrorRoot('');
+          try {
+            if (term) {
+              const q = makeQuery({ searchTerm: term });
+              const data = await fetchJson(`/image-net-search?${q}`);
+              // Only level 1 nodes at root in search mode
+              setRootItems(data.filter(n => n.Level === 1));
+            } else {
+              const q = makeQuery({ maxDepth: 1 });
+              const data = await fetchJson(`/image-net?${q}`);
+              setRootItems(data);
+            }
+          } catch (e){
+            setErrorRoot(String(e));
+          } finally {
+            setLoadingRoot(false);
+          }
+        }, []);
+
+        useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
+
+        const loadChildren = useCallback(async (parent) => {
+          const parentPath = parent?.Name || null;
+          if (isSearching) {
+            const q = makeQuery({ nodePath: parentPath, searchTerm: debouncedSearch.trim() });
+            const data = await fetchJson(`/image-net-search?${q}`);
+            // Only direct children: Level = parent.Level + 1
+            return data.filter(n => n.Level === (parent.Level + 1));
+          } else {
+            if (parentPath) {
+              const q = makeQuery({ nodePath: parentPath, maxDepth: 1 });
+              return await fetchJson(`/image-net?${q}`);
+            } else {
+              // root children without search handled by loadRoot
+              const q = makeQuery({ maxDepth: 1 });
+              return await fetchJson(`/image-net?${q}`);
+            }
+          }
+        }, [isSearching, debouncedSearch]);
+
+        useEffect(() => {
+          const input = document.getElementById('search');
+          const clearBtn = document.getElementById('clearBtn');
+          const onInput = (e) => setSearch(e.target.value);
+          const onClear = () => setSearch('');
+          input.addEventListener('input', onInput);
+          clearBtn.addEventListener('click', onClear);
+          return () => { input.removeEventListener('input', onInput); clearBtn.removeEventListener('click', onClear); };
+        }, []);
+
+        return (
+          <div className="tree">
+            {loadingRoot && <div className="loading">Loading…</div>}
+            {errorRoot && <div className="empty">Error: {errorRoot}</div>}
+            {!loadingRoot && !errorRoot && rootItems.length === 0 && (
+              <div className="empty">No results</div>
+            )}
+            {!loadingRoot && !errorRoot && rootItems.length > 0 && (
+              <ul>
+                {rootItems.map(n => (
+                  <TreeNode key={n.Id} node={n} loadChildren={loadChildren} searchTerm={debouncedSearch.trim()} />
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('app'));
+      root.render(<App />);
+    </script>
+  </body>
+  </html>

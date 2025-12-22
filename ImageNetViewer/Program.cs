@@ -26,6 +26,10 @@ public class Program
             app.MapOpenApi();
         }
 
+        // Serve the frontend from wwwroot
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+
         app.UseHttpsRedirection();
 
         app.UseAuthorization();
