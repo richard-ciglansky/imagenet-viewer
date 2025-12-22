@@ -63,14 +63,18 @@ public class Program
     {
         int nodeDepth = nodePath.IsNullOrEmpty() ? 0 : nodePath.Count(ch => ch == '>');
         maxDepth ??= 1;
-        return context.ImageNetNodes.Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && nodeDepth < node.Level && node.Level <= nodeDepth + maxDepth);
+        return context.ImageNetNodes
+            .Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && nodeDepth < node.Level && node.Level <= nodeDepth + maxDepth)
+            .OrderBy(node => node.Id);
     }
 
     private static IQueryable<ImageNetNode> SearchNodes(ImageNetDbContext context, string? nodePath, string searchTerm)
     {
         Console.Out.WriteLine($"SearchNodes(nodePath = {nodePath}, searchTerm = {searchTerm})");
 
-        return context.ImageNetNodes.Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && EF.Functions.Like(node.Title, $"%{searchTerm}%"));
+        return context.ImageNetNodes
+            .Where(node => node.Name.StartsWith(MakePathPrefix(nodePath)) && EF.Functions.Like(node.Title, $"%{searchTerm}%"))
+            .OrderBy(node => node.Id);
     }
 
     private static string MakePathPrefix(string? nodePath)

@@ -35,5 +35,12 @@ public class ImageNetDbContext : DbContext
         modelBuilder.Entity<ImageNetNode>()
             .Property(n => n.ParentId);
 
+        modelBuilder.Entity<ImageNetNode>()
+            .HasIndex(n => n.Name)
+            .HasDatabaseName("IX_ImageNetNodes_Name");
+
+        modelBuilder.Entity<ImageNetNode>()
+            .HasIndex(n => n.Title)
+            .HasDatabaseName("IX_ImageNetNodes_Title");
     }
 }
