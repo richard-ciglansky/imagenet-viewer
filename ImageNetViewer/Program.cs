@@ -38,7 +38,7 @@ public class Program
 
         app.MapGet("/image-net", (string? nodePath, int? maxDepth, HttpContext httpContext, ImageNetDbContext dbContext) =>
         {
-            return GetNodes(dbContext, nodePath, maxDepth, false);
+            return Results.Ok(GetNodes(dbContext, nodePath, maxDepth, false).ToArray());
         })
         .WithName("GetImageNetNode");
 
@@ -71,9 +71,12 @@ public class Program
 
     private static IQueryable<ImageNetNode> GetNodes(ImageNetDbContext context, string? nodePath, int? maxDepth, bool includeRoot)
     {
-        int nodeDepth = nodePath.IsNullOrEmpty() ? 0 : nodePath.Count(ch => ch == '>');
+        int nodeDepth = nodePath.IsNullOrEmpty() ? -1 : nodePath.Count(ch => ch == '>');
         if (includeRoot)
+        {
             nodeDepth--;
+            maxDepth++;
+        }
 
         maxDepth ??= 1;
         return context.ImageNetNodes
@@ -126,8 +129,8 @@ public class Program
     }
 
     private static string MakePathPrefix(string? nodePath, bool includeRoot)
-        => nodePath is null ? "" : MakePath(nodePath, includeRoot);
+        => nodePath.IsNullOrEmpty() ? "" : MakePath(nodePath!, includeRoot);
 
-    private static string MakePath(string? nodePath, bool includeRoot)
+    private static string MakePath(string nodePath, bool includeRoot)
         => includeRoot ? nodePath : $"{nodePath} > ";
 }

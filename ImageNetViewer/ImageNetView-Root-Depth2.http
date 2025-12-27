@@ -1,0 +1,6 @@
+@ImageNetViewer_HostAddress = http://localhost:5194
+
+GET {{ImageNetViewer_HostAddress}}/image-net?nodePath=&maxDepth=2
+Accept: application/json
+
+###
