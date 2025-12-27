@@ -1,0 +1,6 @@
+@ImageNetViewer_HostAddress = http://localhost:5194
+
+GET {{ImageNetViewer_HostAddress}}/image-net-tree-data?nodePath=
+Accept: application/json
+
+###
