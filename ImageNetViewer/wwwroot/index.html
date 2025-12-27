@@ -67,7 +67,7 @@
         return sp.toString();
       }
 
-      function TreeNode({ node, loadChildren, searchTerm }){
+      function TreeNode({ node, loadChildren, searchTerm, autoExpand = false }){
         const [expanded, setExpanded] = useState(false);
         const [loading, setLoading] = useState(false);
         const [children, setChildren] = useState(null); // null = not loaded, [] = loaded no children
@@ -94,13 +94,31 @@
           }
         };
 
+          // Auto-expand and load this node once if requested (for root element on initial page load)
+          useEffect(() => {
+            if (autoExpand && !expanded && children === null && !loading) {
+              (async () => {
+                setLoading(true); setHasError('');
+                try {
+                  const items = await loadChildren(node);
+                  setChildren(items);
+                  setExpanded(true);
+                } catch (e){
+                  setHasError(String(e));
+                } finally {
+                  setLoading(false);
+                }
+              })();
+            }
+          }, [autoExpand, expanded, children, loading, loadChildren, node]);
+
         return (
           <li>
             <div className="node">
               <span className="toggle" onClick={onToggle} title={expanded ? 'Collapse' : 'Expand'}>
                 {hasChildren ? (expanded ? '▼' : '▶') : '•'}
               </span>
-              <span className="title" title={node.Name}>{node.Title}</span>
+              <span className="title" title={node.Name}>{node.title}</span>
               {loading && <span className="loading">Loading…</span>}
               {!!node.Size && <span className="badge">{node.Size}</span>}
             </div>
@@ -151,7 +169,7 @@
         useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
 
         const loadChildren = useCallback(async (parent) => {
-          const parentPath = parent?.Name || null;
+          const parentPath = parent.Name || null;
           if (isSearching) {
             const q = makeQuery({ nodePath: parentPath, searchTerm: debouncedSearch.trim() });
             const data = await fetchJson(`/image-net-search?${q}`);
@@ -189,7 +207,13 @@
             {!loadingRoot && !errorRoot && rootItems.length > 0 && (
               <ul>
                 {rootItems.map(n => (
-                  <TreeNode key={n.Id} node={n} loadChildren={loadChildren} searchTerm={debouncedSearch.trim()} />
+                  <TreeNode
+                    key={n.Id}
+                    node={n}
+                    loadChildren={loadChildren}
+                    searchTerm={debouncedSearch.trim()}
+                    autoExpand={!isSearching && rootItems.length === 1}
+                  />
                 ))}
               </ul>
             )}
