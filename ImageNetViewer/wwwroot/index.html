@@ -169,7 +169,7 @@
         useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
 
         const loadChildren = useCallback(async (parent) => {
-          const parentPath = parent.Name || null;
+          const parentPath = parent.name || null;
           if (isSearching) {
             const q = makeQuery({ nodePath: parentPath, searchTerm: debouncedSearch.trim() });
             const data = await fetchJson(`/image-net-search?${q}`);
