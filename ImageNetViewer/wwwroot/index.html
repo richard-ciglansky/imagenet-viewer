@@ -207,14 +207,16 @@
           }
           return total;
         };
-        const makeSyntheticNode = (fullPath, level) => {
+        const makeSyntheticNode = (fullPath, level, descendants = 0) => {
           const title = fullPath;
           return {
             id: `group:${fullPath}`,
             name: fullPath,
             title,
             isSynthetic: true,
-            level: level
+            level: level,
+            // initialize lowercase `size` as number of descendants (immediate children in current context)
+            size: descendants
           };
         };
 
@@ -223,7 +225,8 @@
           const segSet = new Set(allItems.map(n => getFirstSegment(n.name || '')));
           segSet.delete('');
           const groups = Array.from(segSet).sort().map(seg => {
-            const node = makeSyntheticNode(seg, 1);
+            const childCount = getImmediateChildSegments(allItems, seg).length;
+            const node = makeSyntheticNode(seg, 1, childCount);
             const size = aggregateSizeForPath(allItems, seg);
             if (size) node.Size = size;
             return node;
@@ -285,7 +288,8 @@
                       size: real.Size
                     };
                   }
-                  const syn = makeSyntheticNode(full, (parent.level || 0) + 1);
+                  const childCount = getImmediateChildSegments(items, full).length;
+                  const syn = makeSyntheticNode(full, (parent.level || 0) + 1, childCount);
                   // For synthetic children, show only the trailing segment as title
                   const lastSeg = full.split(NAME_DELIM).pop();
                   syn.title = lastSeg;
