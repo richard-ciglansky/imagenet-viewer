@@ -142,10 +142,67 @@
         const [search, setSearch] = useState('');
         const debouncedSearch = useDebounced(search, 350);
         // Cache for search results per term to avoid repeated `/image-net-search` fetches.
-        // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, level1: prefiltered Level===1 array }
+        // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, groups: synthetic root nodes grouped by first segment of Name }
         const searchRootCache = useRef(new Map());
 
         const isSearching = debouncedSearch.trim().length > 0;
+
+        // ---- Helpers for search grouping by path segments ----
+        const NAME_DELIM = ' > ';
+        const startsWithPath = (full, path) => full === path || full.startsWith(path + NAME_DELIM);
+        const getFirstSegment = (name) => (name || '').split(NAME_DELIM)[0] || '';
+        const getImmediateChildSegments = (items, prefix) => {
+          const segs = new Set();
+          const lookFor = prefix + NAME_DELIM;
+          for (const n of items) {
+            const nm = n.Name || n.name || '';
+            if (nm.startsWith(lookFor)) {
+              const rest = nm.slice(lookFor.length);
+              const seg = rest.split(NAME_DELIM)[0];
+              if (seg) segs.add(seg);
+            }
+          }
+          return Array.from(segs);
+        };
+        const findExactByName = (items, fullPath) => items.find(n => (n.Name === fullPath) || (n.name === fullPath));
+        const aggregateSizeForPath = (items, path) => {
+          let total = 0;
+          for (const n of items) {
+            const nm = n.Name || n.name || '';
+            if (startsWithPath(nm, path)) {
+              const s = typeof n.Size === 'number' ? n.Size : 0;
+              total += s;
+            }
+          }
+          return total;
+        };
+        const makeSyntheticNode = (fullPath, level) => {
+          const title = fullPath;
+          return {
+            id: `group:${fullPath}`,
+            name: fullPath,
+            title,
+            // Uppercase duplicates used elsewhere in UI (tooltip)
+            Name: fullPath,
+            Title: title,
+            Level: level,
+            ParentId: null,
+            isSynthetic: true,
+          };
+        };
+
+        const buildRootGroups = (allItems) => {
+          // Distinct first segments of Name become root synthetic nodes
+          const segSet = new Set(allItems.map(n => getFirstSegment(n.Name || n.name || '')));
+          segSet.delete('');
+          const groups = Array.from(segSet).sort().map(seg => {
+            const node = makeSyntheticNode(seg, 1);
+            const size = aggregateSizeForPath(allItems, seg);
+            if (size) node.Size = size;
+            return node;
+          });
+          return groups;
+        };
 
         const loadRoot = useCallback(async (term) => {
           setLoadingRoot(true); setErrorRoot('');
@@ -154,16 +211,17 @@
               // Try use cached search results for this term (uses full response remembered for reuse)
               const cached = searchRootCache.current.get(term);
               if (cached) {
-                setRootItems(cached.level1);
+                // Use precomputed synthetic root groups
+                setRootItems(cached.groups || buildRootGroups(cached.all || []));
                 return;
               }
               const q = makeQuery({ searchTerm: term });
               const data = await fetchJson(`/image-net-search?${q}`);
-              // Precompute root (level 1) nodes for display
-              const level1 = data.filter(n => n.Level === 1);
-              setRootItems(level1);
-              // remember the WHOLE response for subsequent same-term loads (not just level 1)
-              searchRootCache.current.set(term, { all: data, level1 });
+              // Build synthetic root groups by first segment of Name
+              const groups = buildRootGroups(data);
+              setRootItems(groups);
+              // remember the WHOLE response and groups for subsequent same-term loads
+              searchRootCache.current.set(term, { all: data, groups });
             } else {
               const q = makeQuery({ maxDepth: 1 });
               const data = await fetchJson(`/image-net?${q}`);
@@ -179,18 +237,51 @@
         useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
 
         const loadChildren = useCallback(async (parent) => {
-          const parentPath = parent.name || null;
+          const parentPath = parent.Name || parent.name || null;
           if (isSearching) {
             const term = debouncedSearch.trim();
             const cached = searchRootCache.current.get(term);
+            const computeChildrenFrom = async (items) => {
+              if (parent.isSynthetic) {
+                // Build children by next path segment under parentPath
+                const segs = getImmediateChildSegments(items, parentPath);
+                const children = segs.map(seg => {
+                  const full = parentPath + NAME_DELIM + seg;
+                  const real = findExactByName(items, full);
+                  if (real) {
+                    // Ensure lowercase fields used by UI exist
+                    return {
+                      ...real,
+                      id: real.id,
+                      name: real.name,
+                      title: real.title,
+                    };
+                  }
+                  const syn = makeSyntheticNode(full, (parent.Level || 0) + 1);
+                  const size = aggregateSizeForPath(items, full);
+                  if (size) syn.Size = size;
+                  return syn;
+                });
+                return children;
+              }
+              // Real parent: use ParentId relation from the dataset
+              return items
+                .filter(n => n.ParentId === parent.Id)
+                .map(real => ({
+                  ...real,
+                  id: real.id,
+                  name: real.name,
+                  title: real.title,
+                }));
+            };
+
             if (cached && cached.all) {
-              // Derive direct children from the cached full dataset
-              return cached.all.filter(n => n.ParentId === parent.Id);
+              return computeChildrenFrom(cached.all);
             }
-            // Fallback: fetch scoped results, then filter to direct children
+            // Fallback: fetch scoped results
             const q = makeQuery({ nodePath: parentPath, searchTerm: term });
             const data = await fetchJson(`/image-net-search?${q}`);
-            return data.filter(n => n.ParentId === parent.Id);
+            return computeChildrenFrom(data);
           } else {
             if (parentPath) {
               const q = makeQuery({ nodePath: parentPath, maxDepth: 1 });
