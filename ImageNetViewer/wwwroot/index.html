@@ -173,7 +173,7 @@
         const [search, setSearch] = useState('');
         const debouncedSearch = useDebounced(search, 350);
         // Cache for search results per term to avoid repeated `/image-net-search` fetches.
-        // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, groups: synthetic root nodes grouped by first segment of Name }
+        // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, groups: synthetic root nodes grouped by first segment of name }
         const searchRootCache = useRef(new Map());
 
         const isSearching = debouncedSearch.trim().length > 0;
@@ -186,7 +186,7 @@
           const segs = new Set();
           const lookFor = prefix + NAME_DELIM;
           for (const n of items) {
-            const nm = n.Name || n.name || '';
+            const nm = n.name || '';
             if (nm.startsWith(lookFor)) {
               const rest = nm.slice(lookFor.length);
               const seg = rest.split(NAME_DELIM)[0];
@@ -195,11 +195,11 @@
           }
           return Array.from(segs);
         };
-        const findExactByName = (items, fullPath) => items.find(n => (n.Name === fullPath) || (n.name === fullPath));
+        const findExactByName = (items, fullPath) => items.find(n => (n.name === fullPath));
         const aggregateSizeForPath = (items, path) => {
           let total = 0;
           for (const n of items) {
-            const nm = n.Name || n.name || '';
+            const nm = n.name || '';
             if (startsWithPath(nm, path)) {
               const s = typeof n.Size === 'number' ? n.Size : 0;
               total += s;
@@ -213,18 +213,14 @@
             id: `group:${fullPath}`,
             name: fullPath,
             title,
-            // Uppercase duplicates used elsewhere in UI (tooltip)
-            Name: fullPath,
-            Title: title,
-            Level: level,
-            ParentId: null,
             isSynthetic: true,
+            level: level
           };
         };
 
         const buildRootGroups = (allItems) => {
           // Distinct first segments of Name become root synthetic nodes
-          const segSet = new Set(allItems.map(n => getFirstSegment(n.Name || n.name || '')));
+          const segSet = new Set(allItems.map(n => getFirstSegment(n.name || '')));
           segSet.delete('');
           const groups = Array.from(segSet).sort().map(seg => {
             const node = makeSyntheticNode(seg, 1);
@@ -268,7 +264,7 @@
         useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
 
         const loadChildren = useCallback(async (parent) => {
-          const parentPath = parent.Name || parent.name || null;
+          const parentPath = parent.name || null;
           if (isSearching) {
             const term = debouncedSearch.trim();
             const cached = searchRootCache.current.get(term);
@@ -286,13 +282,13 @@
                       id: real.id,
                       name: real.name,
                       title: real.title,
+                      size: real.Size
                     };
                   }
-                  const syn = makeSyntheticNode(full, (parent.Level || 0) + 1);
+                  const syn = makeSyntheticNode(full, (parent.level || 0) + 1);
                   // For synthetic children, show only the trailing segment as title
                   const lastSeg = full.split(NAME_DELIM).pop();
                   syn.title = lastSeg;
-                  syn.Title = lastSeg;
                   const size = aggregateSizeForPath(items, full);
                   if (size) syn.Size = size;
                   return syn;
