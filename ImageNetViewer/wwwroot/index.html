@@ -126,7 +126,7 @@
             {expanded && children && children.length > 0 && (
               <ul>
                 {children.map(child => (
-                  <TreeNode key={child.Id} node={child} loadChildren={loadChildren} searchTerm={searchTerm} />
+                  <TreeNode key={child.id} node={child} loadChildren={loadChildren} searchTerm={searchTerm} />
                 ))}
               </ul>
             )}
@@ -206,7 +206,7 @@
               <ul>
                 {rootItems.map(n => (
                   <TreeNode
-                    key={n.Id}
+                    key={n.id}
                     node={n}
                     loadChildren={loadChildren}
                     searchTerm={debouncedSearch.trim()}
