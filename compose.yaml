@@ -1,11 +1,26 @@
 ﻿services:
   imagenetviewer:
     image: imagenetviewer
+    container_name: imagenetviewer
     build:
       context: .
       dockerfile: ImageNetViewer/Dockerfile
+    ports:
+      - "6789:8080"
+    environment:
+      # Override DB settings for in-container connectivity to the sqlserver service
+      - Database__ConnectionString=Server=sqlserver,1433;Database=ImageNet;User ID=ImageNetUser;Password=ImageNet@123!;TrustServerCertificate=True;
+      - Database__Server=sqlserver
+      - Database__Port=1433
+      - Database__UserId=ImageNetUser
+      - Database__Password=ImageNet@123!
+      - Database__Trusted_Connection=False
+      - Database__TrustServerCertificate=True
     depends_on:
-      - sqlserver
+      sqlserver:
+        condition: service_started
+      sqlserver-init:
+        condition: service_completed_successfully
 
   # Microsoft SQL Server for local development
   sqlserver:
@@ -17,28 +32,33 @@
       - MSSQL_SA_PASSWORD=LocalStrong!Passw0rd
       - MSSQL_PID=Developer
     ports:
-      - "1433:1433"
+      - "9876:1433"
     volumes:
       - mssql_data:/var/opt/mssql
     restart: unless-stopped
 
   # One-off initializer to create the ImageNet database and the ImageNetUser login for local use
   sqlserver-init:
-    image: mcr.microsoft.com/mssql-tools
+    # Use a stable tag to avoid manifest-not-found issues
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: imagenet-mssql-init
     depends_on:
       - sqlserver
     environment:
       - SA_PASSWORD=LocalStrong!Passw0rd
-    entrypoint: ["/bin/bash", "-lc"]
-    command: >-
-      until /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $SA_PASSWORD -Q 'SELECT 1' >/dev/null 2>&1; do
-        echo 'Waiting for SQL Server to be available...'; sleep 2;
-      done;
-      echo 'SQL Server is up. Initializing database and user...';
-      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $SA_PASSWORD -Q "IF DB_ID('ImageNet') IS NULL CREATE DATABASE ImageNet;";
-      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $SA_PASSWORD -Q "IF NOT EXISTS (SELECT * FROM sys.sql_logins WHERE name = 'ImageNetUser') CREATE LOGIN ImageNetUser WITH PASSWORD='ImageNet@123!', CHECK_POLICY=OFF;";
-      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $SA_PASSWORD -d ImageNet -Q "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'ImageNetUser') CREATE USER ImageNetUser FOR LOGIN ImageNetUser; EXEC sp_addrolemember 'db_owner', 'ImageNetUser';";
-      echo 'Database initialization finished.'
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      echo "Waiting for SQL Server to be ready...";
+      if [ -x "/opt/mssql-tools/bin/sqlcmd" ]; then SQLCMD="/opt/mssql-tools/bin/sqlcmd"; 
+      elif [ -x "/opt/mssql-tools18/bin/sqlcmd" ]; then SQLCMD="/opt/mssql-tools18/bin/sqlcmd"; 
+      else echo "sqlcmd not found in expected locations" >&2; exit 1; fi;
+      until $$SQLCMD -S sqlserver -U sa -P "$$SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do echo "Waiting for SQL Server to be available..."; sleep 2; done;
+      echo "SQL Server is up. Initializing database and user...";
+      $$SQLCMD -S sqlserver -U sa -P "$$SA_PASSWORD" -C -Q "IF DB_ID('ImageNet') IS NULL CREATE DATABASE ImageNet;";
+      $$SQLCMD -S sqlserver -U sa -P "$$SA_PASSWORD" -C -Q "IF NOT EXISTS (SELECT * FROM sys.sql_logins WHERE name = 'ImageNetUser') CREATE LOGIN ImageNetUser WITH PASSWORD='ImageNet@123!', CHECK_POLICY=OFF;";
+      $$SQLCMD -S sqlserver -U sa -P "$$SA_PASSWORD" -d ImageNet -C -Q "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'ImageNetUser') CREATE USER ImageNetUser FOR LOGIN ImageNetUser; EXEC sp_addrolemember 'db_owner', 'ImageNetUser';";
+      echo "Database initialization finished."
+
     restart: "no"
 
 volumes:

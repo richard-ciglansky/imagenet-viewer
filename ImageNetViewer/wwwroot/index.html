@@ -94,7 +94,7 @@
         const [children, setChildren] = useState(null); // null = not loaded, [] = loaded no children
         const [hasError, setHasError] = useState('');
 
-        const hasChildren = children ? children.length > 0 : true; // assume expandable until known empty
+        const hasChildren = children ? children.length > 0 : node.size > 0; // assume expandable until known empty
 
         const onToggle = async () => {
           if (!expanded) {
@@ -137,13 +137,12 @@
           <li>
             <div className="node">
               <span className="toggle" onClick={onToggle} title={expanded ? 'Collapse' : 'Expand'}>
-                {hasChildren ? (expanded ? '▼' : '▶') : '•'}
+                {hasChildren ? (expanded ? '▼' : '▶') : ''}
               </span>
-              <span className="title" title={node.Name}>
-                <HighlightedText text={node.title} term={searchTerm} />
+              <span className="title" title={node.name}>
+                <HighlightedText text={`${node.title}${node.size ? ' (' + node.size + ')' : ''}`} term={searchTerm} />
               </span>
               {loading && <span className="loading">Loading…</span>}
-              {!!node.Size && <span className="badge">{node.Size}</span>}
             </div>
             {hasError && <div className="empty">Error: {hasError}</div>}
             {expanded && children && children.length > 0 && (
@@ -329,7 +328,7 @@
           const input = document.getElementById('search');
           const clearBtn = document.getElementById('clearBtn');
           const onInput = (e) => setSearch(e.target.value);
-          const onClear = () => setSearch('');
+          const onClear = () => { setSearch(''); if (input) input.value = ''; };
           input.addEventListener('input', onInput);
           clearBtn.addEventListener('click', onClear);
           return () => { input.removeEventListener('input', onInput); clearBtn.removeEventListener('click', onClear); };
