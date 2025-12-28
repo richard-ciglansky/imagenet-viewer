@@ -42,7 +42,7 @@
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 
     <script type="text/babel">
-      const { useState, useEffect, useMemo, useCallback } = React;
+      const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
       function useDebounced(value, delay = 350){
         const [debounced, setDebounced] = useState(value);
@@ -141,6 +141,9 @@
         const [errorRoot, setErrorRoot] = useState('');
         const [search, setSearch] = useState('');
         const debouncedSearch = useDebounced(search, 350);
+        // Cache for search results per term to avoid repeated `/image-net-search` fetches.
+        // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, level1: prefiltered Level===1 array }
+        const searchRootCache = useRef(new Map());
 
         const isSearching = debouncedSearch.trim().length > 0;
 
@@ -148,10 +151,19 @@
           setLoadingRoot(true); setErrorRoot('');
           try {
             if (term) {
+              // Try use cached search results for this term (uses full response remembered for reuse)
+              const cached = searchRootCache.current.get(term);
+              if (cached) {
+                setRootItems(cached.level1);
+                return;
+              }
               const q = makeQuery({ searchTerm: term });
               const data = await fetchJson(`/image-net-search?${q}`);
-              // Only level 1 nodes at root in search mode
-              setRootItems(data.filter(n => n.Level === 1));
+              // Precompute root (level 1) nodes for display
+              const level1 = data.filter(n => n.Level === 1);
+              setRootItems(level1);
+              // remember the WHOLE response for subsequent same-term loads (not just level 1)
+              searchRootCache.current.set(term, { all: data, level1 });
             } else {
               const q = makeQuery({ maxDepth: 1 });
               const data = await fetchJson(`/image-net?${q}`);
@@ -169,10 +181,16 @@
         const loadChildren = useCallback(async (parent) => {
           const parentPath = parent.name || null;
           if (isSearching) {
-            const q = makeQuery({ nodePath: parentPath, searchTerm: debouncedSearch.trim() });
+            const term = debouncedSearch.trim();
+            const cached = searchRootCache.current.get(term);
+            if (cached && cached.all) {
+              // Derive direct children from the cached full dataset
+              return cached.all.filter(n => n.ParentId === parent.Id);
+            }
+            // Fallback: fetch scoped results, then filter to direct children
+            const q = makeQuery({ nodePath: parentPath, searchTerm: term });
             const data = await fetchJson(`/image-net-search?${q}`);
-            // Only direct children: Level = parent.Level + 1
-            return data.filter(n => n.Level === (parent.Level + 1));
+            return data.filter(n => n.ParentId === parent.Id);
           } else {
             if (parentPath) {
               const q = makeQuery({ nodePath: parentPath, maxDepth: 1 });
