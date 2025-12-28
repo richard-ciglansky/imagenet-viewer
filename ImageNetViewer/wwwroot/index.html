@@ -67,6 +67,27 @@
         return sp.toString();
       }
 
+      // Renders `text` with occurrences of `term` wrapped into <mark> elements (case-insensitive)
+      function HighlightedText({ text, term }){
+        const t = String((text !== null && text !== undefined) ? text : '');
+        const q = String((term !== null && term !== undefined) ? term : '').trim();
+        if (!q) return t;
+        const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+          const re = new RegExp(`(${escapeRegExp(q)})`, 'ig');
+          const parts = t.split(re);
+          if (parts.length === 1) return t;
+          return (
+              parts.map((part, i) => (
+                i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>
+              ))
+          );
+        } catch (e) {
+          // On any regex issue, just render plain text
+          return t;
+        }
+      }
+
       function TreeNode({ node, loadChildren, searchTerm, autoExpand = false }){
         const [expanded, setExpanded] = useState(false);
         const [loading, setLoading] = useState(false);
@@ -118,7 +139,9 @@
               <span className="toggle" onClick={onToggle} title={expanded ? 'Collapse' : 'Expand'}>
                 {hasChildren ? (expanded ? '▼' : '▶') : '•'}
               </span>
-              <span className="title" title={node.Name}>{node.title}</span>
+              <span className="title" title={node.Name}>
+                <HighlightedText text={node.title} term={searchTerm} />
+              </span>
               {loading && <span className="loading">Loading…</span>}
               {!!node.Size && <span className="badge">{node.Size}</span>}
             </div>
