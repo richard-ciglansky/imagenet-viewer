@@ -258,26 +258,25 @@
                     };
                   }
                   const syn = makeSyntheticNode(full, (parent.Level || 0) + 1);
+                  // For synthetic children, show only the trailing segment as title
+                  const lastSeg = full.split(NAME_DELIM).pop();
+                  syn.title = lastSeg;
+                  syn.Title = lastSeg;
                   const size = aggregateSizeForPath(items, full);
                   if (size) syn.Size = size;
                   return syn;
                 });
                 return children;
               }
-              // Real parent: use ParentId relation from the dataset
-              return items
-                .filter(n => n.ParentId === parent.Id)
-                .map(real => ({
-                  ...real,
-                  id: real.id,
-                  name: real.name,
-                  title: real.title,
-                }));
+
+              const q = makeQuery({ nodePath: parentPath, maxDepth: 1 });
+              return await fetchJson(`/image-net?${q}`);
             };
 
             if (cached && cached.all) {
               return computeChildrenFrom(cached.all);
             }
+
             // Fallback: fetch scoped results
             const q = makeQuery({ nodePath: parentPath, searchTerm: term });
             const data = await fetchJson(`/image-net-search?${q}`);
