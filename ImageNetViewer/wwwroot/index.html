@@ -149,7 +149,16 @@
             {expanded && children && children.length > 0 && (
               <ul>
                 {children.map(child => (
-                  <TreeNode key={child.id} node={child} loadChildren={loadChildren} searchTerm={searchTerm} />
+                  <TreeNode
+                    key={child.id}
+                    node={child}
+                    loadChildren={loadChildren}
+                    searchTerm={searchTerm}
+                    autoExpand={
+                      (String((searchTerm !== null && searchTerm !== undefined) ? searchTerm : '').trim().length > 0)
+                      && !!child.isSynthetic
+                    }
+                  />
                 ))}
               </ul>
             )}
@@ -341,7 +350,7 @@
                     node={n}
                     loadChildren={loadChildren}
                     searchTerm={debouncedSearch.trim()}
-                    autoExpand={!isSearching && rootItems.length === 1}
+                    autoExpand={(isSearching && !!n.isSynthetic) || (!isSearching && rootItems.length === 1)}
                   />
                 ))}
               </ul>
