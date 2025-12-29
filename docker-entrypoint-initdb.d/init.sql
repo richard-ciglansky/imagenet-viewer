@@ -12,6 +12,21 @@ BEGIN
 END
 GO
 
+-- Grant server-level permissions to allow creating and dropping databases
+USE [master];
+GO
+IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'ImageNetUser')
+BEGIN
+    PRINT 'Granting server-level permissions (CREATE ANY DATABASE, ALTER ANY DATABASE) to ImageNetUser';
+    GRANT CREATE ANY DATABASE TO [ImageNetUser];
+    GRANT ALTER ANY DATABASE TO [ImageNetUser];
+END
+ELSE
+BEGIN
+    PRINT 'Login ImageNetUser not found when granting server-level permissions';
+END
+GO
+
 USE [ImageNet];
 GO
 
