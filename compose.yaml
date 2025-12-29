@@ -1,6 +1,6 @@
 ﻿services:
   imagenetviewer:
-    image: imagenetviewer
+    image: imagenetviewer:local
     container_name: imagenetviewer
     build:
       context: .

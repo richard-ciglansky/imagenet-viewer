@@ -5,7 +5,7 @@ Simple web application showing structure of an ImageNet XML file.This tool allow
 ## Usage
 1. Clone the repository or download the [zip file](https://github.com/richard-ciglansky/imagenet-viewer/archive/refs/heads/master.zip).
 2. Navigate to the project directory in your terminal.
-3. Run `docker compose up -d` to start the application.
+3. Run `docker-compose up --build -d` to start the application.
 4. Access the application at http://localhost:6789 in your web browser.
 
 
