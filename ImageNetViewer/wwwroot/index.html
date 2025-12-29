@@ -186,6 +186,8 @@
         const [errorRoot, setErrorRoot] = useState('');
         const [search, setSearch] = useState('');
         const debouncedSearch = useDebounced(search, 350);
+        // Changing this key will force remount of the whole tree to reset expanded/children state
+        const [treeKey, setTreeKey] = useState(0);
         // Cache for search results per term to avoid repeated `/image-net-search` fetches.
         // key: term (string), value: { all: full array from `/image-net-search?searchTerm=term`, groups: synthetic root nodes grouped by first segment of name }
         const searchRootCache = useRef(new Map());
@@ -278,7 +280,16 @@
           }
         }, []);
 
-        useEffect(() => { loadRoot(debouncedSearch.trim()); }, [loadRoot, debouncedSearch]);
+        // When debounced search term changes, recreate whole tree and load new root
+        useEffect(() => {
+          // reset current tree immediately
+          setRootItems([]);
+          setErrorRoot('');
+          setLoadingRoot(true);
+          setTreeKey((k) => k + 1);
+          // then load data for the new term
+          loadRoot(debouncedSearch.trim());
+        }, [loadRoot, debouncedSearch]);
 
         const loadChildren = useCallback(async (parent) => {
           const parentPath = parent.name || null;
@@ -356,7 +367,7 @@
               <div className="empty">No results</div>
             )}
             {!loadingRoot && !errorRoot && rootItems.length > 0 && (
-              <ul>
+              <ul key={treeKey}>
                 {rootItems.map(n => (
                   <TreeNode
                     key={n.id}
