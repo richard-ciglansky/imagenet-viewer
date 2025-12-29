@@ -1,0 +1,2 @@
+﻿## Enforce Unix LF line endings for the init script used by Docker
+docker-entrypoint-initdb.d/init.sh text eol=lf
