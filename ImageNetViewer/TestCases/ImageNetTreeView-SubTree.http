@@ -1,6 +1,6 @@
 @ImageNetViewer_HostAddress = http://localhost:5194
 
-GET {{ImageNetViewer_HostAddress}}/image-net-tree-data?nodePath=ImageNet%202011%20Fall%20Release%20%3E%20plant%2C%20flora%2C%20plant%20life&maxDepth=100
+GET {{ImageNetViewer_HostAddress}}/image-net-tree-data?nodePath=ImageNet%202011%20Fall%20Release%20%3E%20plant%2C%20flora%2C%20plant%20life%20%3E%20wilding&maxDepth=100
 Accept: application/json
 
 ###

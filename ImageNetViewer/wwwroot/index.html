@@ -30,6 +30,9 @@
         <input id="search" type="text" placeholder="Search titles (e.g. 'goldenrod') — results show only nodes whose titles contain the term" />
         <button id="clearBtn" title="Clear">Clear</button>
       </div>
+      <div class="search">
+        Complete data in <a href="/image-net-tree-data?" download="imagenet-tree.json">json format.</a>
+      </div>
     </header>
     <main>
       <div id="app"></div>
@@ -142,6 +145,17 @@
               <span className="title" title={node.name}>
                 <HighlightedText text={`${node.title}${node.size ? ' (' + node.size + ')' : ''}`} term={searchTerm} />
               </span>
+              {/* Download link for the current node's tree data */}
+              <a
+                className="download"
+                href={`/image-net-tree-data?${makeQuery({ nodePath: node.name })}`}
+                title="Download JSON for this node"
+                onClick={(e) => e.stopPropagation()}
+                download
+                style={{ marginLeft: '6px', textDecoration: 'none' }}
+              >
+                ⬇
+              </a>
               {loading && <span className="loading">Loading…</span>}
             </div>
             {hasError && <div className="empty">Error: {hasError}</div>}
