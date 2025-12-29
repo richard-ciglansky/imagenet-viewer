@@ -18,12 +18,10 @@ public static class ImageNetDbInitializer
         using (var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "ImageNetStructure.json")))
         {
             Console.Out.Write("Reading ImageNetDb ...");
-            var nodes = JsonSerializer.Deserialize<ImageNetNode[]>(stream, serializationOptions);
+            var nodes = JsonSerializer.Deserialize<ImageNetNode[]>(stream, serializationOptions) ?? Array.Empty<ImageNetNode>();
             Console.Out.Write("\nSeeding ImageNetDb ...");
-
-            var titleNull = nodes.Where(n => n.Title == null);
-            Console.Out.WriteLine($"Found {titleNull.Count()} nodes with null titles.");
             context.ImageNetNodes.AddRange(nodes);
+            Console.Out.Write("\nCommiting changes ...");
             context.SaveChanges();
             Console.Out.WriteLine("\nDone.");
         }

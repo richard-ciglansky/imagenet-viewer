@@ -13,13 +13,13 @@ class Program
     public readonly string NodeName = "synset";
     public readonly string NameAttribute = "words";
 
-    private Dictionary<XElement, int> totalDescendantsCount = new();
-    private JsonSerializerOptions options = new()
+    private readonly Dictionary<XElement, int> totalDescendantsCount = new();
+    private readonly JsonSerializerOptions options = new()
     {
         WriteIndented = false, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    static void Main(string[] args)
+    static void Main(string[] _)
     {
         new Program().Import(InputStream);
     }
@@ -92,12 +92,13 @@ class Program
     /// </returns>
     private (int MaxNameLength, int MaxTitleLength) ExportElement(StreamWriter writer, XElement element, ref int id, int level, int? parentId, string? prefix = null)
     {
-        string? title = element.Attribute(NameAttribute)?.Value;
-        string? nameString = MakePrefix(prefix, title);
+        // generate some title value when none is provided
+        string title = element.Attribute(NameAttribute)?.Value ?? Guid.NewGuid().ToString();
+        string nameString = MakePrefix(prefix, title);
 
         int thisId = id;
-        int nameLength = nameString?.Length ?? 0;
-        int titleLength = title?.Length ?? 0;
+        int nameLength = nameString.Length;
+        int titleLength = title.Length;
         writer.Write(FormatElement(element, nameString, title, id, level, parentId));
         writer.WriteLine(",");
         foreach (XElement child in element.Elements(NodeName))
@@ -144,7 +145,7 @@ class Program
     private string FormatElement(XElement element, string? name, string title, int id, int level, int? parentId)
         => JsonSerializer.Serialize(new { name, title, size = totalDescendantsCount[element], id, level, parentId }, options);
 
-    private string? MakePrefix(string? prefix, string name)
+    private string MakePrefix(string? prefix, string name)
         => $"{(prefix is null ? name : PreppendPrefix(prefix, name))}";
 
     private string PreppendPrefix(string prefix, string value)
