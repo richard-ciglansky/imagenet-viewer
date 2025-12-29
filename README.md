@@ -1,0 +1,2 @@
+﻿# imagenet-viewer
+Simple web application showing structure of an ImageNet XML file.This tool allows users to visualize and explore the hierarchical structure of ImageNet XML files, facilitating better understanding and analysis of the dataset.
