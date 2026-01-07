@@ -41,11 +41,10 @@ Application allows navigation through the hierarchy of classes and images.
 - Provides enpoints for loading children in array format, loading subtree in tree-base JSON format and searching for a term in nodes.
 - Application is accessible on non-standard port 6789 to prevent colision with other applications.
 - Internally run SQL Server in docker container is exposed on port 9876 to prevent colision with MS SQL Server on the host machine.
-
+- When search term is specified, only branches of the tree are loaded, which contain the search term in their 'word/title' field.  
+  Number of children shown for such nodes is also restricted to the subtree with the 'matching' branches only.
 
 ## Known Isuess
-- When searching is engaged, the numbers of descendants of the matched node are not shown, just number of immedate children.   
-    This can be fixed by adding new endpointsm or less effectively by loading nodes one-by-one. 
 - Application uses of preloaded data to optimize performance. It detects the maximum size of database fields to create database table accordingly.  
     This can be improved by using Import directly in the web service during initialization, optimalization of the table structure will be more complicated.
     And as performance was main focus of this application, it was not implemented intentionally.
