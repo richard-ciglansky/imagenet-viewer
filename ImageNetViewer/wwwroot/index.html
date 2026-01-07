@@ -201,7 +201,7 @@
           for (const n of items) {
             const nm = n.name || '';
             if (startsWithPath(nm, path)) {
-              const s = typeof n.Size === 'number' ? n.Size : 0;
+              const s = typeof n.size === 'number' ? n.size : 0;
               total += s;
             }
           }
@@ -225,7 +225,7 @@
           const groups = Array.from(segSet).sort().map(seg => {
             const node = makeSyntheticNode(seg, 1);
             const size = aggregateSizeForPath(allItems, seg);
-            if (size) node.Size = size;
+            if (size) node.size = size;
             return node;
           });
           return groups;
@@ -282,7 +282,7 @@
                       id: real.id,
                       name: real.name,
                       title: real.title,
-                      size: real.Size
+                      size: real.size
                     };
                   }
                   const syn = makeSyntheticNode(full, (parent.level || 0) + 1);
@@ -290,7 +290,7 @@
                   const lastSeg = full.split(NAME_DELIM).pop();
                   syn.title = lastSeg;
                   const size = aggregateSizeForPath(items, full);
-                  if (size) syn.Size = size;
+                  if (size) syn.size = size;
                   return syn;
                 });
                 return children;
